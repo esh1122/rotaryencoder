@@ -6,10 +6,27 @@ import threading
 import datetime, time
 from utils import calc_checksum, get_protocol_data
 from flask import Flask
+import pymysql
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger('server')
 
+db = pymysql.connect(host='localhost', user='root', password='1234', db='rotary',
+    charset='utf8mb4')
+    
+cur = db.cursor()
+
+# query = '''CREATE TABLE rotary.encoder (
+#   id INT NOT NULL,
+#   date VARCHAR(45) NOT NULL,
+#   time VARCHAR(45) NOT NULL,
+#   value VARCHAR(45) NOT NULL,
+#   PRIMARY KEY (id),
+#   UNIQUE INDEX id_UNIQUE (id ASC) VISIBLE);'''
+
+# cur.execute(query)
+
+# db.commit()
 
 class SocketServer(threading.Thread):
     def __init__(self):
@@ -36,7 +53,7 @@ class SocketServer(threading.Thread):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        server_socket.bind(("", 5090))
+        server_socket.bind(("0.0.0.0", 5090))
         server_socket.listen(5)
 
         # self.queue = []
@@ -50,11 +67,6 @@ class SocketServer(threading.Thread):
                 try:
                     data = client_socket.recv(512)
                     logger.info(f'received: {data}')
-                    print(data)
-                    print(data[0])
-                    print(data[1])
-                    print(data[2])
-                    print(data[3])
                     if data[1] == ord("T"):
                         dt = datetime.datetime.now().strftime('%y%m%d%H%M%S000')
                         value = f'{0:> 4d}'
@@ -69,6 +81,14 @@ class SocketServer(threading.Thread):
                     checksum = calc_checksum(data[2:21])
                     if data[21].to_bytes(1, 'big') != checksum:
                         raise ValueError('checksum error.')
+
+                    date = "".join(data[2:8].decode('utf-8'))
+                    dt = "".join(data[8:17].decode('utf-8'))
+                    value = "".join(data[17:21].decode('utf-8'))
+                    print(f"{date}, {dt}, {value}")
+                    query = f'INSERT INTO rotary.encoder (date, time, value) VALUES ("{date}", "{dt}", "{value}");'
+                    cur.execute(query)
+                    db.commit()
                     
                     # if data[1] == "S":
                     #     get_protocol_data(dt, value, "S")
@@ -85,7 +105,7 @@ class SocketServer(threading.Thread):
 
 def main():
     app = Flask(__name__)
-    print("Hello world")
+    
     @app.route('/')
     def board():
         return "Welcome"
