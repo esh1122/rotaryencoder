@@ -60,13 +60,13 @@ def time_synchronization(data) :
         dt_str = []
         print(len(data))
         for i in range(len(data)) :
-            print(str(data[i]))
             dt_str.append(str(chr(data[i])))
-        dt_str = "".join(dt_str[2:18])
+        dt_str = "".join(dt_str[2:17])
         print(dt_str)
-        dt = datetime.datetime.strptime(dt_str, '%y-%m-%d %H:%M:%S.%f')
+        dt = datetime.datetime.strptime(dt_str, '%y%m%d%H%M%S%f')
+        dt = dt.strftime('%Y-%m-%d %H:%M:%S.000')
         print(dt)
-        subprocess.call(["date -s", dt])
+        subprocess.call(["date", "-s", dt])
     except ValueError as e: #ValueError이라는 오류가 발생했을 경우 오류 문구를 'e'에 저장 
         print(f'{e}: {IP} {PORT}')
 
