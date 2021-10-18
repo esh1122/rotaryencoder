@@ -1,8 +1,19 @@
 {% extends 'layout.html' %}
+{% block head %}
+<script>
+    $(document).ready(function(){
+       $('.dropdown-toggle').dropdown()
+   });
+</script>
+{% endblock %} 
 {% block body %}
 <div class="jumbotron" id="Ta">
     <h1 class="display-4">Datum</h1>
-    <input
+    <form id="searchForm" method="get" action="/search">
+        <input type="text" name="ID" placeholder="ID" value="">
+        <input type="text" name="DATE" placeholder="OOOO-OO-OO" value="">
+        <input type="submit" value="확인">
+    </form>
     <table class="table">
         <thead>
             <tr>
