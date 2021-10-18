@@ -5,24 +5,27 @@ import logging
 import threading
 import datetime, time
 from utils import calc_checksum, get_protocol_data
-from flask import Flask
+from flask import Flask, render_template, request, redirect
 import pymysql
+import re
+import yaml
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger('server')
 
-db = pymysql.connect(host='localhost', user='root', password='1234', db='rotary',
-    charset='utf8mb4')
+with open('test_server.yaml') as f:
+
+    server_data = yaml.load(f, Loader=yaml.FullLoader)
+
+db = pymysql.connect(host=server_data['sql']['host'], user=server_data['sql']['user'], password=server_data['sql']['password'], db=server_data['sql']['db'], charset=server_data['sql']['charset'])
     
 cur = db.cursor()
 
 # query = '''CREATE TABLE rotary.encoder (
-#   id INT NOT NULL,
+#   id VARCHAR(45) NOT NULL,
 #   date VARCHAR(45) NOT NULL,
 #   time VARCHAR(45) NOT NULL,
-#   value VARCHAR(45) NOT NULL,
-#   PRIMARY KEY (id),
-#   UNIQUE INDEX id_UNIQUE (id ASC) VISIBLE);'''
+#   value VARCHAR(45) NOT NULL);'''
 
 # cur.execute(query)
 
@@ -53,7 +56,7 @@ class SocketServer(threading.Thread):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        server_socket.bind(("0.0.0.0", 5090))
+        server_socket.bind((server_data['device']['address'], server_data['device']['port']))
         server_socket.listen(5)
 
         # self.queue = []
@@ -67,26 +70,31 @@ class SocketServer(threading.Thread):
                 try:
                     data = client_socket.recv(512)
                     logger.info(f'received: {data}')
-                    if data[1] == ord("T"):
+                    if data[2] == ord("T"):
+                        _id = server_data['server_id']
                         dt = datetime.datetime.now().strftime('%y%m%d%H%M%S000')
                         value = f'{0:> 4d}'
-                        data = get_protocol_data(dt, value, "T")
+                        data = get_protocol_data(dt, value, "T", _id)
                         client_socket.send(data)
                         print("시간동기화 확인")
                         continue
 
-                    if 23 != len(data):
+                    if 24 != len(data):
                         raise ValueError(
-                            f'data is not expected size (23), but {len(data)}')
-                    checksum = calc_checksum(data[2:21])
-                    if data[21].to_bytes(1, 'big') != checksum:
+                            f'data is not expected size (24), but {len(data)}')
+                    checksum = calc_checksum(data[3:22])
+                    if data[22].to_bytes(1, 'big') != checksum:
                         raise ValueError('checksum error.')
 
-                    date = "".join(data[2:8].decode('utf-8'))
-                    dt = "".join(data[8:17].decode('utf-8'))
-                    value = "".join(data[17:21].decode('utf-8'))
-                    print(f"{date}, {dt}, {value}")
-                    query = f'INSERT INTO rotary.encoder (date, time, value) VALUES ("{date}", "{dt}", "{value}");'
+                    _id = int.from_bytes(data[1:2], byteorder='big')
+                    dt = "".join(data[3:18].decode('utf-8'))
+                    dt = datetime.datetime.strptime(dt, "%y%m%d%H%M%S%f")
+                    date = datetime.datetime.strftime(dt,"%Y-%m-%d")
+                    __time = datetime.datetime.strftime(dt,"%H:%M:%S.%f")
+                    value = "".join(data[18:22].decode('utf-8'))
+                    value = int(value)*1.246
+                    print(f"{dt}, {value}, {_id}")
+                    query = f'INSERT INTO rotary.encoder (id, date, time, value) VALUES ("{_id}", "{date}", "{__time}", "{value}");'
                     cur.execute(query)
                     db.commit()
                     
@@ -108,7 +116,16 @@ def main():
     
     @app.route('/')
     def board():
-        return "Welcome"
+
+        query = f'SELECT * FROM rotary.encoder;'
+
+        cur.execute(query)
+        db.commit()
+
+        datum = cur.fetchall()
+        datum = reversed(datum)
+        
+        return render_template('datum.html', datum = datum)
 
     @app.route('/example', defaults={'number': 0})
     @app.route('/example/<number>')
@@ -119,7 +136,7 @@ def main():
     th.daemon = True
     th.start()
 
-    app.run(host="0.0.0.0", port=8080)
+    app.run(host=server_data['web']['host'], port=server_data['web']['port'])
 
 
 if __name__ == '__main__':

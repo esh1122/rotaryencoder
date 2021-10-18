@@ -1,3 +1,4 @@
+from sys import byteorder
 import RPi.GPIO as GPIO #라즈베리파이 GPIO 사용
 import time
 import datetime
@@ -9,6 +10,7 @@ from contextlib import contextmanager   #contextmanager 객체 사용
 import subprocess
 from rotary_encoder import Encoder      #Encoder 사용
 from utils import get_protocol_data     #?
+import yaml
 
 #핀번호 설정
 PIN_ENCODER_A = 16 
@@ -25,9 +27,14 @@ ACTIVATE_STATUS = 0
 ENCODER = None
 
 #웹 설정
-IP = 'localhost'
-PORT = 5090
-DB_FILE = 'pulse.db'
+with open('main.yaml') as f:
+
+    device_data = yaml.load(f, Loader=yaml.FullLoader)
+
+_id = device_data['_id']
+IP = device_data['IP']
+PORT = device_data['port']
+DB_FILE = device_data['db']
 
 def reset_counter():
     pass
@@ -58,11 +65,9 @@ def receive_data_from_server():
 def time_synchronization(data) :
     try:
         dt_str = []
-        print(len(data))
         for i in range(len(data)) :
             dt_str.append(str(chr(data[i])))
-        dt_str = "".join(dt_str[2:17])
-        print(dt_str)
+        dt_str = "".join(dt_str[3:18])
         dt = datetime.datetime.strptime(dt_str, '%y%m%d%H%M%S%f')
         dt = dt.strftime('%Y-%m-%d %H:%M:%S.000')
         print(dt)
@@ -88,14 +93,14 @@ def set_working_status(value):
         #시간 동기화 요청
         dt = f'{0:> 15d}'
         value = f'{0:> 4d}'
-        command_T = get_protocol_data(dt, value, "T")
+        command_T = get_protocol_data(dt, value, "T", _id)
         send_data_to_server(command_T)
         flag = 0
 
         #시간 동기화
         data_r = receive_data_from_server()
         if data_r:
-            if data_r[1] == ord("T"):
+            if data_r[2] == ord("T"):
                 time_synchronization(data_r)
                 print("시간동기화 완료")
                 flag = 1
@@ -103,9 +108,10 @@ def set_working_status(value):
 
         dt = datetime.datetime.now().strftime('%y%m%d%H%M%S000')
         value = f'{abs(ENCODER.value):> 4d}' #각도를 특정형식으로 저장
-        data = get_protocol_data(dt, value, "C") #시간과 각도를 엮어서 data에 저장
+        data = get_protocol_data(dt, value, "C", _id) #시간과 각도를 엮어서 data에 저장
+        # time.sleep(2)
         print(data)
-
+        
         if flag == 1:
             try:
                 send_data_to_server(data) #data를 서버에 전송
@@ -115,7 +121,7 @@ def set_working_status(value):
                 # data = [('210310151620000', 168), ('210310151625000', 356)]
                 for dt, value in data:
                     value = f'{value:> 4d}'
-                    data = get_protocol_data(dt, value, "S")
+                    data = get_protocol_data(dt, value, "S", _id)
                     print(data)
                     try:
                         send_data_to_server(data)

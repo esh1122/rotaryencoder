@@ -1,0 +1,25 @@
+{% extends 'layout.html' %}
+{% block body %}
+<div class="jumbotron" id="Ta">
+    <h1 class="display-4">Datum</h1>
+    <input
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>DATE/TIME</th>
+                <th>VALUE(mm)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for data in datum %}
+                <tr>
+                    <td>{{data[1]}}</td>
+                    <td>{{data[2]}} {{data[3]}}</td>
+                    <td>{{data[4]}}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+	</table>
+</div>
+{% endblock %}
