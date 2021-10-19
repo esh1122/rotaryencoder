@@ -91,7 +91,7 @@ class SocketServer(threading.Thread):
                     dt = "".join(data[3:18].decode('utf-8'))
                     dt = datetime.datetime.strptime(dt, "%y%m%d%H%M%S%f")
                     date = datetime.datetime.strftime(dt,"%Y-%m-%d")
-                    __time = datetime.datetime.strftime(dt,"%H:%M:%S.%f")
+                    __time = datetime.datetime.strftime(dt,"%H:%M:%S")
                     value = "".join(data[18:22].decode('utf-8'))
                     value = int(value)*1.246
                     print(f"{dt}, {value}, {_id}")
