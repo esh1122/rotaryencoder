@@ -4,6 +4,7 @@ import socket
 import logging
 import threading
 import datetime, time
+from types import MethodType
 from utils import calc_checksum, get_protocol_data
 from flask import Flask, render_template, request, redirect
 import pymysql
@@ -90,7 +91,7 @@ class SocketServer(threading.Thread):
                     dt = "".join(data[3:18].decode('utf-8'))
                     dt = datetime.datetime.strptime(dt, "%y%m%d%H%M%S%f")
                     date = datetime.datetime.strftime(dt,"%Y-%m-%d")
-                    __time = datetime.datetime.strftime(dt,"%H:%M:%S.%f")
+                    __time = datetime.datetime.strftime(dt,"%H:%M:%S")
                     value = "".join(data[18:22].decode('utf-8'))
                     value = int(value)*1.246
                     print(f"{dt}, {value}, {_id}")
@@ -127,11 +128,30 @@ def main():
         
         return render_template('datum.html', datum = datum)
 
-    @app.route('/example', defaults={'number': 0})
-    @app.route('/example/<number>')
-    def boards(number):
-        return f'{number}'
+    @app.route('/search', methods = ['GET'])
+    def search():
+        if request.method == 'GET' :
+            _id = request.args.get("ID")
+            dt = request.args.get("DATE")
+            if _id and dt :
+                query = f'SELECT * FROM rotary.encoder where id = {_id} AND date = "{dt}";'
+            elif _id and dt == '' :
+                query = f'SELECT * FROM rotary.encoder where id = {_id};'
+            elif _id == '' and dt :
+                query = f'SELECT * FROM rotary.encoder where date = "{dt}";'
+            else :
+                return redirect("/")
 
+            print(query)
+            cur.execute(query)
+            db.commit()
+
+            datum = cur.fetchall()
+            datum = reversed(datum)
+            
+            return render_template('datum.html', datum = datum)
+        else :
+            return redirect('/')
     th = SocketServer()
     th.daemon = True
     th.start()
