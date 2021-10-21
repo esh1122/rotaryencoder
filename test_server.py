@@ -3,45 +3,39 @@ import sys
 import socket
 import logging
 import threading
-import datetime, time
+import datetime
 from types import MethodType
 from utils import calc_checksum, get_protocol_data
 from flask import Flask, render_template, request, redirect
 import pymysql
-import re
 import yaml
 
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+# logging 초기 설정
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG) #
 logger = logging.getLogger('server')
 
+# yaml파일에서 데이터 불러오기
 with open('test_server.yaml') as f:
-
     server_data = yaml.load(f, Loader=yaml.FullLoader)
 
-db = pymysql.connect(host=server_data['sql']['host'], user=server_data['sql']['user'], password=server_data['sql']['password'], db=server_data['sql']['db'], charset=server_data['sql']['charset'])
-    
+# db와 연결
+db = pymysql.connect(host=server_data['sql']['host'], user=server_data['sql']['user'], password=server_data['sql']['password'], db=server_data['sql']['db'], charset=server_data['sql']['charset'])    
 cur = db.cursor()
 
-# query = '''CREATE TABLE rotary.encoder (
-#   id VARCHAR(45) NOT NULL,
-#   date VARCHAR(45) NOT NULL,
-#   time VARCHAR(45) NOT NULL,
-#   value VARCHAR(45) NOT NULL);'''
-
-# cur.execute(query)
-
-# db.commit()
-
+# SocketServer 클래스 생성
 class SocketServer(threading.Thread):
+    # 초기설정
     def __init__(self):
         threading.Thread.__init__(self)
         self._status = True
         # self.queue = []
 
+    # get
     @property
     def status(self):
         return self._status
 
+    # set
     @status.setter
     def status(self, v):
         if not isinstance(v, bool):
@@ -77,7 +71,6 @@ class SocketServer(threading.Thread):
                         value = f'{0:> 4d}'
                         data = get_protocol_data(dt, value, "T", _id)
                         client_socket.send(data)
-                        print("시간동기화 확인")
                         continue
 
                     if 24 != len(data):
@@ -93,18 +86,14 @@ class SocketServer(threading.Thread):
                     date = datetime.datetime.strftime(dt,"%Y-%m-%d")
                     __time = datetime.datetime.strftime(dt,"%H:%M:%S")
                     value = "".join(data[18:22].decode('utf-8'))
-                    value = int(value)*1.246
-                    print(f"{dt}, {value}, {_id}")
+                    mm_per_parse = server_data['device']['wheel']*3.14/100
+                    value = round(int(value)*mm_per_parse, 3)
+                    # print(f"{dt}, {value}, {_id}")
+
                     query = f'INSERT INTO rotary.encoder (id, date, time, value) VALUES ("{_id}", "{date}", "{__time}", "{value}");'
                     cur.execute(query)
                     db.commit()
-                    
-                    # if data[1] == "S":
-                    #     get_protocol_data(dt, value, "S")
-                    #     client_socket.send(data)
-                    # else :
-                    #     get_protocol_data(dt, value, "C")
-                    #     client_socket.send(data)
+    
                 except Exception as e:
                     logger.error(str(e))
                 finally:
@@ -124,7 +113,17 @@ def main():
         db.commit()
 
         datum = cur.fetchall()
-        datum = reversed(datum)
+
+        datum = list(datum)
+
+        mm_per_parse = server_data['device']['wheel']*3.14/100
+        for data in datum :
+            num = datum.index(data)
+            data = list(data)
+            data.append(round(float(data[4])/mm_per_parse))
+            datum[num] = tuple(data)
+        # print(datum)
+        datum = reversed(tuple(datum))
         
         return render_template('datum.html', datum = datum)
 
@@ -142,12 +141,21 @@ def main():
             else :
                 return redirect("/")
 
-            print(query)
+            # print(query)
             cur.execute(query)
             db.commit()
 
             datum = cur.fetchall()
-            datum = reversed(datum)
+
+            datum = list(datum)
+            mm_per_parse = server_data['device']['wheel']*3.14/100
+            for data in datum :
+                num = datum.index(data)
+                data = list(data)
+                data.append(round(float(data[4])/mm_per_parse))
+                datum[num] = tuple(data)
+            # print(datum)
+            datum = reversed(tuple(datum))
             
             return render_template('datum.html', datum = datum)
         else :

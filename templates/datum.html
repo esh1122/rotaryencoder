@@ -1,14 +1,14 @@
 {% extends 'layout.html' %}
 {% block head %}
 <script>
-    $(document).ready(function(){
-       $('.dropdown-toggle').dropdown()
-   });
+    function home(){
+                location.href = "/" ;
+            }
 </script>
 {% endblock %} 
 {% block body %}
 <div class="jumbotron" id="Ta">
-    <h1 class="display-4">Datum</h1>
+    <h1 class="display-4" onclick="home()" style="cursor: pointer;">Data</h1>
     <form id="searchForm" method="get" action="/search">
         <input type="text" name="ID" placeholder="ID" value="">
         <input type="text" name="DATE" placeholder="OOOO-OO-OO" value="">
@@ -19,6 +19,7 @@
             <tr>
                 <th>ID</th>
                 <th>DATE/TIME</th>
+                <th>PULSE</th>
                 <th>VALUE(mm)</th>
             </tr>
         </thead>
@@ -27,6 +28,7 @@
                 <tr>
                     <td>{{data[1]}}</td>
                     <td>{{data[2]}} {{data[3]}}</td>
+                    <td>{{data[5]}}</td>
                     <td>{{data[4]}}</td>
                 </tr>
             {% endfor %}
